@@ -7,6 +7,7 @@
 	    readline = lambda x: {}
 	attrib = Attrib()
 
+    pid   = os.getpid()
     path  = os.path.realpath(".")
     tool  = os.path.basename(path)
     Tool  = string.capitalize(tool)
@@ -167,7 +168,10 @@
 		    warn(uploadmsg)
 		if uploadname and uploadfile:
 		    if not hasattr(uploadfile, "info") or uploadfile.info()["content-type"].startswith("text/plain"):
-			uploadname = os.path.join("/a/tmp/1", uploadname)
+			uploaddir1 = os.path.join("/a/tmp/1", "%d"%pid)
+			if not os.path.exists(uploaddir1):
+				os.makedirs(uploaddir1)
+			uploadname = os.path.join(uploaddir1, uploadname)
 			outputfile = open(uploadname, "w")
 			while linecount1 < 64000: # arbitrary number of lines
 			    line = uploadfile.readline()
@@ -221,7 +225,10 @@
 		    
 		if uploadname and uploadfile:
 		    if not hasattr(uploadfile, "info") or uploadfile.info()["content-type"].startswith("text/plain"):
-			uploadname = os.path.join("/a/tmp/2", uploadname)
+			uploaddir2 = os.path.join("/a/tmp/2", "%d"%pid )
+			if not os.path.exists(uploaddir2):
+				os.makedirs(uploaddir2)
+			uploadname = os.path.join(uploaddir2, uploadname)
 			outputfile = open(uploadname, "w")
 			while linecount2 < 64000:
 			    line = uploadfile.readline()
@@ -289,8 +296,10 @@
 	os.system("./rfcdiff --stdout --links %s %s %s %s %s %s %s %s" % (fold, width, difftype, oldcolour, newcolour, larger, filename1, filename2))
 	if filename1.startswith('/a/tmp/1/'):
 	    os.unlink(filename1)
+#	    os.rmdir(uploaddir1)
 	if filename2.startswith('/a/tmp/2/'):
 	    os.unlink(filename2)
+#	    os.rmdir(uploaddir2)
 	sys.exit(0)
 
 ?>

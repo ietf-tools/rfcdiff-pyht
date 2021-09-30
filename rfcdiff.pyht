@@ -1,5 +1,5 @@
 <?python # -*- html -*-
-    import re, os, time, string, stat, sys, syslog
+    import re, os, time, string, stat, sys, syslog, json
     try:
         from raw2event import attrib
     except ImportError:
@@ -29,10 +29,14 @@
     linecount2 = 0
     uploadsrc1 = ""
     uploadsrc2 = ""
+    src1_metadata = dict()
+    src2_metadata = dict()
     uploadfile = None
     info = ""
     debuginfo = ""
     errors = ""
+
+    tmp_dir = os.environ.get("RFCDIFF_TMP_DIR","/a/tmp")
 
     def norm(url):
         import urlparse
@@ -42,39 +46,38 @@
             scheme = 'http'
         return (scheme, host, path, query, fragment)
 
+    def get_metadata(name, warn_fn):
+        import os, json, urllib2 
+        metadata_base_url = os.environ.get("RFCDIFF_METADATA_BASE_URL","https://datatracker.ietf.org/doc/rfcdiff-latest-json/")
+        url = metadata_base_url+urllib2.quote(name)
+        metadata = dict()
+        msg = ""
+        try:
+            response = urllib2.urlopen(url)
+            metadata = json.load(response)             
+        except:
+            uploadmsg = "Couldn't fetch metadata from %s" % url
+            warn_fn(uploadmsg)
+            msg = "Couldn't fetch metadata for %s. " % name
+        return msg, metadata
     for a in args:
         if not a in ["url1", "url2", "filename1", "filename2", "difftype",
                      "--width", "--oldcolour", "--newcolour", "--larger",
                      "--fold", "submit", ]:
             errors += "Unexpected query parameter: <b>%s</b><br>" % a
 
-
     if "filename2" in args or "url2" in args:
         if "filename2" in args and len(args["filename2"]) > 0:
             uploadsrc2 = form["filename2"].filename
         elif "url2" in args and type(args["url2"]) is str and len(args["url2"]) > 0:
             uploadsrc2 = args["url2"].split('?',1)[0]
-            if uploadsrc2.startswith("draft-"):
-                rev_match = re.search("(.*-)([0-9][0-9])(.txt)?$", uploadsrc2)
-                if rev_match:
-                    uploadsrc2 = "https://www.ietf.org/archive/id/"+uploadsrc2;
-                else:
-                    uploadsrc2 = "https://tools.ietf.org/id/"+uploadsrc2;
-                    name_match = re.search("^(.*?)(.txt)?$", uploadsrc2)
-                    if name_match:
-                        draft = name_match.group(1)
-                        try:
-                            attrs = attrib.readline("/www/tools.ietf.org/draft/%s/now" % draft)
-                            uploadsrc2 = "%s-%s" % (draft, attrs.docrev.string)
-                        except:
-                            pass
-                if not uploadsrc2.endswith(".txt"):
-                    uploadsrc2 += ".txt"
-            else:
-                match = re.search("^[rR][fF][cC] ?([0-9]+)", uploadsrc2)
-                if match:
-                    uploadsrc2 = "https://www.ietf.org/rfc/rfc"+match.group(1)+".txt"
-        else:
+            if uploadsrc2.startswith("draft-") or uploadsrc2.lower().startswith("rfc"):
+                msg, src2_metadata = get_metadata(uploadsrc2, warn)
+                if msg:
+                    info += msg
+                if "content_url" in src2_metadata:
+                    uploadsrc2 = src2_metadata["content_url"]
+        if not uploadsrc2:
             uploadmsg = "Upload failed - no source file name for file 2."
     note("diff source 2: %s" % uploadsrc2)
 
@@ -83,67 +86,26 @@
             uploadsrc1 = form["filename1"].filename
         elif "url1" in args and type(args["url1"]) is str and len(args["url1"]) > 0:
             uploadsrc1 = args["url1"].split('?',1)[0]
-            if uploadsrc1.startswith("draft-"):
-                rev_match = re.search("(.*-)([0-9][0-9])(.txt)?$", uploadsrc1)
-                if rev_match:
-                    uploadsrc1 = "https://www.ietf.org/archive/id/"+uploadsrc1;
-                else:
-                    uploadsrc1 = "https://tools.ietf.org/id/"+uploadsrc1;
-                if not uploadsrc1.endswith(".txt"):
-                    uploadsrc1 += ".txt"
+            if uploadsrc1.startswith("draft-") or uploadsrc1.lower().startswith("rfc"):
+                msg, src1_metadata = get_metadata(uploadsrc1, warn)
+                if msg:
+                    info += msg
+                if "content_url" in src1_metadata:
+                    uploadsrc1 = src1_metadata["content_url"]
                 if not uploadsrc2:
                     match = re.match("(.*-)([0-9][0-9])(\..*)", uploadsrc1)
                     if match:
                         rev = int(match.group(2))
                         uploadsrc2= "%s%02d%s" % (match.group(1), rev+1, match.group(3))
                         uploadmsg = ""
-            else:
-                match = re.search("^[rR][fF][cC] ?([0-9]+)", uploadsrc1)
-                if match:
-                    uploadsrc1 = "https://www.ietf.org/rfc/rfc"+match.group(1)+".txt"
-        elif uploadsrc2:
-            try:
-                match = re.match("(.*-)([0-9][0-9])(\..*)", uploadsrc2)
-                if match:
-                    rev = int(match.group(2))
-                    if rev > 0:
-                        uploadsrc1= "%s%02d%s" % (match.group(1), rev-1, match.group(3))
-                    elif rev == 0:
-                        match = re.match(".*-(rfc)?([0-9][0-9][0-9]+)bis-.*", uploadsrc2)
-                        if match:
-                            rfcnum = match.group(2)
-                            uploadsrc1 = "https://www.ietf.org/rfc/rfc%s.txt" % rfcnum
-                        else:
-                            # Check if this document is a draft which
-                            # replaces another...
-                            match = re.match(".*/(draft-[^.]*)(\.txt)?", uploadsrc2)
-                            if match:
-                                draft = match.group(1)
-                                if re.search("-[0-9][0-9]$", draft):
-                                    draft = draft[:-3]
-                                try:
-                                    attrs = attrib.readline("/www/tools.ietf.org/draft/%s/now" % draft)
-                                    if "docreplaces" in attrs.__dict__:
-                                        uploadsrc1= "https://www.ietf.org/archive/id/%s" % attrs.docreplaces
-                                except Exception, e:
-                                    info += str(e)
-                                    pass
+        elif src2_metadata and "previous" in src2_metadata:
+            uploadsrc1 = src2_metadata["previous"]
+            msg, src1_metadata = get_metadata(uploadsrc1, warn)
+            if msg:
+                info += msg
+            if "content_url" in src1_metadata:
+                uploadsrc1 = src1_metadata["content_url"]
 
-                match = re.match(".*/([Rr][Ff][Cc])([0-9]+)(\..*)", uploadsrc2)
-                if match:
-                    num = int(match.group(2))
-                    if num > 0:
-                        try:
-                            attrs = attrib.readline("/www/tools.ietf.org/draft/rfc%s/now" % num)
-                            if "document" in attrs.__dict__:
-                                uploadsrc1= "https://www.ietf.org/archive/id/%s" % attrs.document
-                        except Exception, e:
-                            info += str(e)
-                            pass
-                
-            except Exception, e:
-                info += str(e)
-                pass
         note("diff source 1: %s" % uploadsrc1)
 
         if uploadsrc1:
@@ -168,7 +130,7 @@
                     warn(uploadmsg)
                 if uploadname and uploadfile:
                     if not hasattr(uploadfile, "info") or uploadfile.info()["content-type"].startswith("text/plain"):
-                        uploaddir1 = os.path.join("/a/tmp/1", "%d"%pid)
+                        uploaddir1 = os.path.join(os.path.join(tmp_dir, "1"), "%d"%pid)
                         if not os.path.exists(uploaddir1):
                                 os.makedirs(uploaddir1)
                         uploadname = os.path.join(uploaddir1, uploadname)
@@ -209,13 +171,6 @@
                         uploadmsg = "Couldn't retrieve file 2 (%s) - got a redirect to '%s'." % (uploadsrc2, uploadfile.geturl())
                         warn(uploadmsg)
                         uploadfile = None
-                        if uploadsrc2.startswith("https://tools.ietf.org/id/draft-"):
-                            # Try to get the document from the master site, instead:
-                            uploadsrc2b = uploadsrc2.replace("https://tools.ietf.org/id/", "https://www.ietf.org/internet-drafts/")
-                            try:
-                                uploadfile = urllib.urlopen(uploadsrc2b)
-                            except:
-                                pass
                             
                 elif "filename2" in args and form["filename2"].file:
                     uploadfile = form["filename2"].file
@@ -225,7 +180,7 @@
                     
                 if uploadname and uploadfile:
                     if not hasattr(uploadfile, "info") or uploadfile.info()["content-type"].startswith("text/plain"):
-                        uploaddir2 = os.path.join("/a/tmp/2", "%d"%pid )
+                        uploaddir2 = os.path.join(os.path.join(tmp_dir,"2"), "%d"%pid )
                         if not os.path.exists(uploaddir2):
                                 os.makedirs(uploaddir2)
                         uploadname = os.path.join(uploaddir2, uploadname)

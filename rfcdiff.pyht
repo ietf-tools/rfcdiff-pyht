@@ -264,12 +264,6 @@
   <title><?python tool ?></title>
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
   <meta http-equiv="Content-Style-Type" content="text/css" />
-  <link rel="stylesheet" href="/css/wg-page.css" type="text/css" />
-  <script language="javascript1.1" src="/js/hide.js" type="text/javascript"></script>
-  <script language="javascript1.1" src="/js/updated.js" type="text/javascript"></script>
-  <?python 
-      tryinclude("../autocomplete/autocomplete_header.html")
-  ?>
 </head>
 <body >
 <div class="page">
@@ -299,23 +293,10 @@
                      <tr>
                         <!-- left column inherited from previous row -->
                         <td class="chairs">
-                           <i>Version:</i> 0.12
-                           <br />
-
-                           <i>Author:</i>
-                           <script type="text/javascript"> showEmail("henrik", "levkowetz.com", "Henrik Levkowetz "); </script>
-
                         </td>
                      </tr>
                   </table>
                   <b>
-                     <!--
-                     <a href="webservice">Idspell Webservice</a> | 
-                     <a href="changelog">Change log</a> |
-                     <a href="code">Browse code</a> | 
-                     <script type="text/javascript"> showEmail("tools-discuss", "ietf.org?subject=Idspell-0.11%20feedback", "Feedback"); </script> |
-                     <a href="copyright">Copyright</a>
-                     -->
                   </b>
                </div>
                <hr/>
@@ -421,8 +402,8 @@
 
   <table width="100%" style="margin-top: 10em;">
     <tr valign="bottom">
-      <td style=" font-size: 9pt; font-style: italic; text-align: left; ">Generated from <a href="/tools/pyht/">PyHt</a> script <a href="<?python urlname ?>?showcode=1"><?python urlname ?></a></td>
-      <td style=" font-size: 9pt; font-style: italic; text-align: right; ">Latest update: <?python filedate() ?> - <script type="text/javascript" language="JavaScript1.1">; showAddr("henrik", "levkowetz.com"); </script></td>
+      <td style=" font-size: 9pt; font-style: italic; text-align: left; ">Generated using the PyHt script  <a href="<?python urlname ?>?showcode=1"><?python urlname ?></a></td>
+      <td style=" font-size: 9pt; font-style: italic; text-align: right; ">Latest update: <?python filedate() ?> </td>
     </tr>
   </table>
   <?python

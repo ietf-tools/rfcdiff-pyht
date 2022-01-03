@@ -53,7 +53,7 @@
         metadata = dict()
         msg = ""
         try:
-            response = urllib2.urlopen(url)
+            response = urllib2.urlopen(url, timeout=20)
             metadata = json.load(response)             
         except:
             uploadmsg = "Couldn't fetch metadata from %s" % url
@@ -113,9 +113,8 @@
             if re.match("^[a-zA-Z0-9_.,-]*$", uploadname):
                 if uploadsrc1.startswith("http://") or uploadsrc1.startswith("https://") or uploadsrc1.startswith("ftp://"):
                     try:
-                        import httplib
-                        import urllib2 as urllib
-                        uploadfile = urllib.urlopen(uploadsrc1)
+                        import httplib, urllib2
+                        uploadfile = urllib2.urlopen(uploadsrc1, timeout=20)
                     except:
                         uploadmsg = "Couldn't retrieve file 1 (%s) - please check the URL." % uploadsrc1
                         warn(uploadmsg)
@@ -161,9 +160,8 @@
             if re.match("^[a-zA-Z0-9_.,-]*$", uploadname):
                 if uploadsrc2.startswith("http://") or uploadsrc2.startswith("https://") or uploadsrc2.startswith("ftp://"):
                     try:
-                        import httplib
-                        import urllib2 as urllib
-                        uploadfile = urllib.urlopen(uploadsrc2)
+                        import httplib, urllib2
+                        uploadfile = urllib2.urlopen(uploadsrc2, timeout=20)
                     except:
                         uploadmsg = "Couldn't retrieve file 2 (%s) - please check the URL." % uploadsrc2
                         warn(uploadmsg)
